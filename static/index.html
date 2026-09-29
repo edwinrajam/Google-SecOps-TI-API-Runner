@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google SecOps (Chronicle) &amp; GTI API Runner</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            },
+            secops: {
+              bg: '#0a0e17',
+              card: '#111827',
+              border: '#1f2937',
+              accent: '#06b6d4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-[#0a0e17] text-gray-100 flex flex-col h-screen overflow-hidden select-none">
+
+  <!-- TOP APP HEADER WITH 2 MAIN PLATFORM TABS (Tab 1: Chronicle API | Tab 2: GTI API) -->
+  <header class="h-14 border-b border-gray-800 bg-[#0d1322] px-4 flex items-center justify-between z-20 flex-shrink-0">
+    <div class="flex items-center space-x-3 whitespace-nowrap flex-shrink-0">
+      <div id="app-logo-box" class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 flex-shrink-0">
+        <i id="app-logo-icon" class="fa-solid fa-shield-halved text-base"></i>
+      </div>
+      <div>
+        <span id="app-header-title" class="font-bold text-sm tracking-wide text-white whitespace-nowrap">Google SecOps &amp; GTI <span class="text-blue-400">API Runner</span></span>
+      </div>
+
+      <!-- 2 Top-Level Platform Switcher Tabs: 1) Chronicle API | 2) GTI API -->
+      <div class="flex items-center bg-[#131b2e] p-1 rounded-lg border border-gray-700/90 ml-3 shadow-inner" role="tablist">
+        <button id="platform-tab-secops" onclick="switchPlatform('secops')" role="tab"
+                class="px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center space-x-2 bg-blue-600 text-white shadow transition">
+          <i class="fa-solid fa-shield-halved text-xs"></i>
+          <span>Chronicle API</span>
+          <span id="secops-tab-count" class="px-1.5 py-0.2 rounded bg-blue-900/60 text-blue-200 font-mono text-[10px]">1,352</span>
+        </button>
+        <button id="platform-tab-gti" onclick="switchPlatform('gti')" role="tab"
+                class="px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center space-x-2 text-gray-400 hover:text-gray-200 transition">
+          <i class="fa-solid fa-radar text-xs text-cyan-400"></i>
+          <span>GTI API</span>
+          <span id="gti-tab-count" class="px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 font-mono text-[10px]">381</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Header Right Actions -->
+    <div class="flex items-center space-x-2.5 whitespace-nowrap flex-shrink-0">
+      <!-- Chronicle Credentials Pill (visible on Chronicle API tab) -->
+      <div id="auth-status-pill" class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 cursor-pointer whitespace-nowrap flex-shrink-0 transition shadow-sm" onclick="openConfigModal('secops')" title="Manage Chronicle API Credentials (AES-256 Encrypted at Rest)">
+        <span id="auth-status-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
+        <i id="auth-status-icon" class="fa-solid fa-key text-[11px]"></i>
+        <span id="auth-status-text">Credentials</span>
+        <span id="auth-status-badge" class="px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-200 text-[10px] font-mono">Not Set</span>
+      </div>
+
+      <!-- GTI Credentials Pill (visible on GTI API tab) -->
+      <div id="gti-auth-status-pill" class="hidden inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 cursor-pointer whitespace-nowrap flex-shrink-0 transition shadow-sm" onclick="openConfigModal('gti')" title="Manage Google Threat Intelligence API Credentials (x-apikey Encrypted at Rest)">
+        <span id="gti-auth-status-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse flex-shrink-0"></span>
+        <i id="gti-auth-status-icon" class="fa-solid fa-key text-[11px]"></i>
+        <span id="gti-auth-status-text">Credentials</span>
+        <span id="gti-auth-status-badge" class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-cyan-200 text-[10px] font-mono">Not Set</span>
+      </div>
+
+      <!-- Google IAP Verified User Badge -->
+      <div id="iap-user-pill" class="hidden inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 whitespace-nowrap flex-shrink-0" title="Google Corporate Identity (IAP Verified)">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
+        <span id="iap-user-email" class="font-mono font-medium truncate max-w-[150px]">edwinraja@google.com</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold uppercase tracking-wider">IAP</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT SIDEBAR: ENDPOINTS & PRESETS EXPLORER -->
+    <aside class="w-80 md:w-96 border-r border-gray-800 bg-[#0c121e] flex flex-col flex-shrink-0">
+
+      <!-- Search & Filter Area -->
+      <div class="p-3 border-b border-gray-800 space-y-2.5 bg-gray-900/40">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-500 text-xs"></i>
+          <input type="text" id="endpoint-search" placeholder="Search 1,215 Chronicle endpoints (e.g. feeds, search, rules)..."
+                 class="w-full bg-[#141b2d] border border-gray-700 rounded-md pl-8 pr-7 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
+                 oninput="filterEndpoints()" onkeydown="handleSearchKey(event)">
+          <button id="search-clear-btn" onclick="clearSearch()" class="hidden absolute right-2.5 top-2 text-gray-500 hover:text-gray-300 text-xs">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Filter Row: Category & Method -->
+        <div class="flex space-x-2 text-xs">
+          <select id="category-filter" onchange="filterEndpoints()" class="flex-1 bg-[#141b2d] border border-gray-700 rounded px-2 py-1 text-gray-300 text-xs focus:outline-none focus:border-blue-500">
+            <option value="ALL">All Categories</option>
+          </select>
+
+          <select id="method-filter" onchange="filterEndpoints()" class="w-24 bg-[#141b2d] border border-gray-700 rounded px-2 py-1 text-gray-300 text-xs focus:outline-none focus:border-blue-500 font-mono">
+            <option value="ALL">ALL</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+          </select>
+        </div>
+
+        <!-- View Tabs: Presets vs All vs Starred -->
+        <div class="flex border-b border-gray-800 text-xs font-medium">
+          <button id="tab-nav-presets" onclick="switchSidebarTab('presets')" class="flex-1 py-1 text-center border-b-2 border-blue-500 text-blue-400 transition">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Presets (<span id="preset-count">16</span>)
+          </button>
+          <button id="tab-nav-all" onclick="switchSidebarTab('all')" class="flex-1 py-1 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+            <i class="fa-solid fa-list mr-1"></i>All (<span id="total-endpoint-count">1215</span>)
+          </button>
+          <button id="tab-nav-favorites" onclick="switchSidebarTab('favorites')" class="flex-1 py-1 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+            <i class="fa-solid fa-star mr-1 text-amber-400"></i>Starred (<span id="fav-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets View -->
+      <div id="presets-panel" class="flex-1 overflow-y-auto p-2.5 space-y-1.5">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 px-1 py-1 flex items-center justify-between">
+          <span id="presets-header-label">Featured Chronicle Actions</span>
+          <span class="text-[10px] text-blue-400 lowercase font-mono">1-click setup</span>
+        </div>
+        <div id="presets-list" class="space-y-1">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- All Endpoints View -->
+      <div id="endpoints-panel" class="hidden flex-1 overflow-y-auto p-2 space-y-2">
+        <div id="endpoints-count-label" class="px-2 py-1 text-[11px] text-gray-500 font-mono flex items-center justify-between">
+          <span>Showing endpoints</span>
+        </div>
+        <!-- Matching Presets in Search -->
+        <div id="search-presets-section" class="hidden space-y-1 pb-2 border-b border-gray-800/80">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-blue-400 px-2 py-0.5 flex items-center space-x-1">
+            <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+            <span>Matching Featured Presets</span>
+          </div>
+          <div id="search-presets-list" class="space-y-1"></div>
+        </div>
+        <!-- Endpoints List -->
+        <div id="endpoints-list" class="space-y-0.5">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Favorites View -->
+      <div id="favorites-panel" class="hidden flex-1 overflow-y-auto p-2 space-y-1">
+        <div id="favorites-list" class="space-y-1">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="p-2 border-t border-gray-800 bg-[#090d16] text-[11px] text-gray-500 flex justify-between items-center px-3">
+        <span id="sidebar-footer-badge" class="flex items-center space-x-1.5 text-gray-400">
+          <i class="fa-solid fa-shield-halved text-blue-400 text-xs"></i>
+          <span>Chronicle v1alpha REST</span>
+        </span>
+        <button onclick="toggleHistoryDrawer()" class="text-blue-400 hover:text-blue-300 hover:underline flex items-center space-x-1 transition">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>History (<span id="history-counter">0</span>)</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- RIGHT MAIN CONTENT: REQUEST BUILDER & RESPONSE VIEWER -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-[#0a0e17]">
+
+      <!-- CREDENTIAL PROMPT BANNER -->
+      <div id="no-sa-banner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 flex items-center justify-between text-xs text-amber-300">
+        <!-- Populated dynamically by updatePlatformAuthBanner() -->
+      </div>
+
+      <!-- TOP: REQUEST BUILDER -->
+      <section class="border-b border-gray-800 flex flex-col bg-[#0e1424] flex-shrink-0" style="max-height: 52vh;">
+
+        <!-- Action bar: Method + URL + Send Button -->
+        <div class="p-3 pb-2 flex items-center space-x-2">
+          <select id="req-method" onchange="handleMethodChange()" class="h-9 px-3 bg-[#172033] border border-gray-700 rounded-md text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PUT">PUT</option>
+          </select>
+
+          <div class="relative flex-1">
+            <input type="text" id="req-url"
+                   placeholder="/v1alpha/projects/{project}/locations/{location}/instances/{instance}/feeds"
+                   class="w-full h-9 bg-[#172033] border border-gray-700 rounded-md pl-3 pr-24 text-xs font-mono text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition">
+
+            <div class="absolute right-2 top-1.5 flex items-center space-x-1">
+              <button onclick="copyCurlCommand()" class="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded text-[11px] border border-gray-700 transition" title="Copy as cURL command">
+                <i class="fa-solid fa-terminal mr-1"></i>cURL
+              </button>
+            </div>
+          </div>
+
+          <button id="btn-send" onclick="sendApiRequest()" class="h-9 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-md flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition">
+            <i id="btn-send-icon" class="fa-solid fa-paper-plane"></i>
+            <span id="btn-send-text">Send</span>
+          </button>
+        </div>
+
+        <!-- Streamlined Helper & Token Toolbar -->
+        <div class="px-3 py-1.5 flex items-center justify-between text-xs bg-gray-900/60 border-t border-b border-gray-800/80 gap-3">
+          <!-- Left: Method Quick Explanation -->
+          <div class="flex items-center space-x-2 min-w-0 flex-1 whitespace-nowrap overflow-hidden">
+            <span id="method-guide-badge" class="method-badge method-get">GET</span>
+            <span id="method-guide-summary" class="text-[11px] text-gray-400 truncate">Read / Fetch resources without modifying state. Safe &amp; idempotent.</span>
+            <button onclick="openMethodGuideModal()" class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center space-x-1 flex-shrink-0 ml-1" title="Learn what GET, POST, PATCH, DELETE mean">
+              <i class="fa-solid fa-circle-question text-[10px]"></i>
+              <span class="hidden sm:inline">HTTP Guide</span>
+            </button>
+          </div>
+
+          <!-- Right: Chronicle Parameter Chips OR GTI Quick-Fill Indicator Chips -->
+          <div class="flex items-center space-x-1.5 text-[11px] text-gray-400 flex-shrink-0 whitespace-nowrap">
+            <!-- Chronicle Chips -->
+            <div id="chronicle-helper-chips" class="flex items-center space-x-1.5">
+              <span class="text-gray-500 text-[10px] uppercase font-semibold tracking-wider hidden lg:inline">Insert:</span>
+              <span class="px-1.5 py-0.5 bg-blue-950/60 text-blue-300 border border-blue-800/60 rounded font-mono text-[10px] cursor-pointer hover:bg-blue-900/60 transition" onclick="insertToken('{project}')" title="Insert GCP Project ID">{project}</span>
+              <span class="px-1.5 py-0.5 bg-cyan-950/60 text-cyan-300 border border-cyan-800/60 rounded font-mono text-[10px] cursor-pointer hover:bg-cyan-900/60 transition" onclick="insertToken('{location}')" title="Insert region (e.g. us)">{location}</span>
+              <span class="px-1.5 py-0.5 bg-indigo-950/60 text-indigo-300 border border-indigo-800/60 rounded font-mono text-[10px] cursor-pointer hover:bg-indigo-900/60 transition" onclick="insertToken('{instance}')" title="Insert customer/instance ID">{instance}</span>
+              <span class="px-1.5 py-0.5 bg-purple-950/60 text-purple-300 border border-purple-800/60 rounded font-mono text-[10px] cursor-pointer hover:bg-purple-900/60 transition" onclick="insertToken('{id}')" title="Insert resource ID">{id}</span>
+            </div>
+
+            <!-- GTI Quick-Fill Indicator Chips -->
+            <div id="gti-helper-chips" class="hidden items-center space-x-1.5">
+              <span class="text-cyan-400 text-[10px] uppercase font-semibold tracking-wider hidden lg:inline"><i class="fa-solid fa-bolt mr-1"></i>Quick-Fill:</span>
+              <button onclick="quickFillGtiIndicator('eicar')" class="px-1.5 py-0.5 bg-cyan-950/60 text-cyan-300 border border-cyan-800/60 rounded font-mono text-[10px] hover:bg-cyan-900/60 transition" title="Fill EICAR SHA-256 Hash">🦠 EICAR SHA256</button>
+              <button onclick="quickFillGtiIndicator('ip')" class="px-1.5 py-0.5 bg-blue-950/60 text-blue-300 border border-blue-800/60 rounded font-mono text-[10px] hover:bg-blue-900/60 transition" title="Fill IP 8.8.8.8">🖧 8.8.8.8</button>
+              <button onclick="quickFillGtiIndicator('domain')" class="px-1.5 py-0.5 bg-indigo-950/60 text-indigo-300 border border-indigo-800/60 rounded font-mono text-[10px] hover:bg-indigo-900/60 transition" title="Fill Domain virustotal.com">🌐 virustotal.com</button>
+              <button onclick="quickFillGtiIndicator('cve')" class="px-1.5 py-0.5 bg-purple-950/60 text-purple-300 border border-purple-800/60 rounded font-mono text-[10px] hover:bg-purple-900/60 transition" title="Fill CVE-2024-21413">🛡️ CVE-2024-21413</button>
+              <button onclick="quickFillGtiIndicator('actor')" class="px-1.5 py-0.5 bg-amber-950/60 text-amber-300 border border-amber-800/60 rounded font-mono text-[10px] hover:bg-amber-900/60 transition" title="Filter Threat Actor APT41">🕵️ APT41</button>
+            </div>
+
+            <div id="endpoint-doc-badge" class="hidden md:inline-flex items-center ml-1 pl-2 border-l border-gray-800">
+              <a id="active-doc-link" href="#" target="_blank" class="text-blue-400 hover:underline flex items-center space-x-1 text-[11px]">
+                <span>API Spec</span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Required Inputs Bar (URL Path Placeholders & Required Body Fields) -->
+        <div id="required-inputs-bar" class="hidden px-3 py-2.5 bg-blue-950/25 border-b border-blue-500/30 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-600 text-white shadow-sm">
+                <i class="fa-solid fa-sliders mr-1"></i>Required Inputs for this API Call
+              </span>
+              <span id="required-inputs-hint" class="text-[11px] text-blue-300 font-medium">
+                Fill in the fields below before clicking Send — updates URL &amp; Request Body automatically.
+              </span>
+            </div>
+            <button onclick="switchReqTab('body')" id="btn-jump-to-body" class="hidden text-[11px] text-cyan-400 hover:text-cyan-300 font-mono underline">
+              View Raw JSON Body &rarr;
+            </button>
+          </div>
+          <div id="required-inputs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-0.5">
+            <!-- Dynamically populated URL path variables & JSON body fields -->
+          </div>
+        </div>
+
+        <!-- Request Tabs Header -->
+        <div class="flex items-center justify-between px-3 pt-1 border-b border-gray-800 bg-[#0c121f]">
+          <div class="flex space-x-4 text-xs">
+            <button id="req-tab-params" onclick="switchReqTab('params')" class="py-2 border-b-2 border-blue-500 text-blue-400 font-medium transition">
+              Query Params (<span id="params-count">0</span>)
+            </button>
+            <button id="req-tab-body" onclick="switchReqTab('body')" class="py-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-medium transition flex items-center space-x-1.5">
+              <span>Request Body</span>
+              <span id="req-body-badge" class="hidden px-1.5 py-0.2 rounded-full text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">JSON</span>
+            </button>
+            <button id="req-tab-headers" onclick="switchReqTab('headers')" class="py-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-medium transition">
+              Headers (<span id="headers-count">2</span>)
+            </button>
+            <button id="req-tab-doc" onclick="switchReqTab('doc')" class="py-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-medium transition">
+              Endpoint Info
+            </button>
+          </div>
+
+          <!-- Body Helpers -->
+          <div id="body-tab-actions" class="hidden items-center space-x-2 py-1">
+            <button onclick="addBodyFieldPrompt()" class="px-2 py-0.5 bg-blue-900/30 hover:bg-blue-900/50 text-blue-300 rounded text-[11px] border border-blue-700/50 transition">
+              <i class="fa-solid fa-plus mr-1"></i>Add Field
+            </button>
+            <button onclick="formatRequestBody()" class="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[11px] border border-gray-700 transition">
+              <i class="fa-solid fa-code mr-1"></i>Prettify JSON
+            </button>
+            <button onclick="loadSampleBody()" class="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[11px] border border-gray-700 transition">
+              <i class="fa-solid fa-file-code mr-1"></i>Reset Template
+            </button>
+            <button onclick="clearRequestBody()" class="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-red-400 rounded text-[11px] border border-gray-700 transition">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Request Tabs Content -->
+        <div class="flex-1 overflow-y-auto p-3" style="min-height: 125px; max-height: 240px;">
+
+          <!-- Params Tab -->
+          <div id="req-content-params" class="space-y-2">
+            <div class="text-[11px] text-gray-400 mb-1">
+              <i class="fa-solid fa-circle-info text-blue-400 mr-1"></i>URL Query Parameters (appended after <code class="text-gray-300">?</code> in the URL, e.g., <code class="text-blue-300">?pageSize=50</code> or <code class="text-cyan-300">?limit=10</code>).
+            </div>
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="text-gray-500 border-b border-gray-800 text-[11px] uppercase">
+                  <th class="pb-1.5 w-1/3">Parameter Key</th>
+                  <th class="pb-1.5 w-1/2">Value</th>
+                  <th class="pb-1.5 w-12 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="params-table-body" class="divide-y divide-gray-800/60">
+                <!-- Dynamic Param Rows -->
+              </tbody>
+            </table>
+            <button onclick="addParamRow()" class="mt-1 px-2.5 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-900/20 border border-blue-800/40 rounded transition">
+              <i class="fa-solid fa-plus mr-1"></i>Add Query Parameter
+            </button>
+          </div>
+
+          <!-- Body Tab -->
+          <div id="req-content-body" class="hidden h-full flex flex-col space-y-2">
+            <div class="flex items-center justify-between text-[11px] text-gray-400">
+              <span><i class="fa-solid fa-code text-blue-400 mr-1"></i><strong>HTTP Request Body (JSON Payload)</strong> — Edit fields via the form above or directly in the JSON editor below:</span>
+            </div>
+            <textarea id="req-body-input" oninput="handleRawBodyInput()" placeholder="Enter JSON request payload..."
+                      class="w-full h-32 bg-[#141b2d] border border-gray-700 rounded p-2.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-blue-500 resize-y transition"></textarea>
+          </div>
+
+          <!-- Headers Tab -->
+          <div id="req-content-headers" class="hidden space-y-2">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="text-gray-500 border-b border-gray-800 text-[11px] uppercase">
+                  <th class="pb-1.5 w-1/3">Header Name</th>
+                  <th class="pb-1.5 w-1/2">Header Value</th>
+                  <th class="pb-1.5 w-12 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="headers-table-body" class="divide-y divide-gray-800/60">
+                <!-- Dynamic Header Rows -->
+              </tbody>
+            </table>
+            <button onclick="addHeaderRow()" class="mt-1 px-2.5 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-900/20 border border-blue-800/40 rounded transition">
+              <i class="fa-solid fa-plus mr-1"></i>Add Custom Header
+            </button>
+          </div>
+
+          <!-- Doc Tab -->
+          <div id="req-content-doc" class="hidden space-y-2 text-xs text-gray-300">
+            <div class="flex items-center space-x-2">
+              <span id="doc-title" class="font-bold text-sm text-white">API Endpoint</span>
+              <span id="doc-category-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-800 text-gray-300 border border-gray-700">General</span>
+            </div>
+            <p id="doc-description" class="text-gray-400 leading-relaxed text-xs">Select an endpoint from the left to view action description and parameters.</p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- BOTTOM: RESPONSE VIEWER, GTI ASSESSMENT BANNER & TROUBLESHOOTING -->
+      <section class="flex-1 flex flex-col overflow-hidden bg-[#0a0e17]">
+
+        <!-- Response Header Bar -->
+        <div class="h-11 border-b border-gray-800 px-4 flex items-center justify-between bg-[#0c121e] flex-shrink-0">
+          <div class="flex items-center space-x-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Response</span>
+
+            <!-- Status Badges -->
+            <div id="res-status-pill" class="hidden items-center space-x-2">
+              <span id="res-status-badge" class="status-badge status-2xx">200 OK</span>
+              <span id="res-duration-badge" class="text-xs font-mono text-gray-400 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">142ms</span>
+              <span id="res-size-badge" class="text-xs font-mono text-gray-400 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">1.2 KB</span>
+            </div>
+          </div>
+
+          <!-- Response Tabs & Action Buttons -->
+          <div class="flex items-center space-x-3">
+            <div class="flex space-x-2 text-xs">
+              <button id="res-tab-json" onclick="switchResTab('json')" class="px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30 font-medium transition">JSON Tree</button>
+              <button id="res-tab-table" onclick="switchResTab('table')" class="px-2.5 py-1 rounded text-gray-400 hover:text-gray-200 transition">Table</button>
+              <button id="res-tab-raw" onclick="switchResTab('raw')" class="px-2.5 py-1 rounded text-gray-400 hover:text-gray-200 transition">Raw</button>
+              <button id="res-tab-headers" onclick="switchResTab('headers')" class="px-2.5 py-1 rounded text-gray-400 hover:text-gray-200 transition">Headers</button>
+              <button id="res-tab-troubleshoot" onclick="switchResTab('troubleshoot')" class="hidden px-2.5 py-1 rounded text-amber-400 bg-amber-500/10 border border-amber-500/30 transition">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i>Troubleshoot
+              </button>
+            </div>
+
+            <div class="h-4 w-px bg-gray-800"></div>
+
+            <button onclick="copyResponse()" class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-gray-800 transition" title="Copy response to clipboard">
+              <i class="fa-regular fa-copy mr-1"></i>Copy
+            </button>
+            <button onclick="downloadResponse()" class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-gray-800 transition" title="Download response as JSON">
+              <i class="fa-solid fa-download mr-1"></i>JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- GTI THREAT ASSESSMENT SUMMARY BANNER (Shown automatically when a GTI v3 entity report is returned) -->
+        <div id="gti-summary-card" class="hidden px-4 py-3 border-b border-cyan-500/30 bg-gradient-to-r from-[#101a2e] via-[#0d1526] to-[#0a101d] space-y-2 flex-shrink-0">
+          <!-- Populated dynamically by renderGtiSummaryCard() -->
+        </div>
+
+        <!-- Response Body Area -->
+        <div class="flex-1 overflow-y-auto p-4 relative font-mono text-xs">
+
+          <!-- Empty State -->
+          <div id="res-empty-state" class="h-full flex flex-col items-center justify-center text-gray-500 space-y-3">
+            <div class="w-12 h-12 rounded-full bg-gray-800/60 border border-gray-700 flex items-center justify-center text-gray-400">
+              <i class="fa-solid fa-satellite-dish text-xl"></i>
+            </div>
+            <div class="text-center">
+              <p id="res-empty-title" class="font-semibold text-gray-300">Ready to execute live API request</p>
+              <p class="text-gray-500 text-xs mt-1">Select a Chronicle or GTI endpoint on the left or choose a Featured Preset to get started.</p>
+            </div>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div id="res-loading-state" class="hidden h-full flex flex-col items-center justify-center space-y-3">
+            <div class="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full spin"></div>
+            <p id="res-loading-text" class="text-gray-400 text-xs font-mono">Executing live REST API request...</p>
+          </div>
+
+          <!-- Chronicle LRO Operation Banner -->
+          <div id="lro-banner" class="hidden mb-3 p-3 rounded-lg bg-blue-950/40 border border-blue-500/40 flex items-center justify-between text-xs font-sans">
+            <div class="min-w-0 flex-1 pr-3">
+              <div class="font-bold text-blue-300 flex items-center space-x-2">
+                <i id="lro-icon" class="fa-solid fa-arrows-rotate spin text-blue-400"></i>
+                <span id="lro-title">Chronicle Search Operation in Progress</span>
+              </div>
+              <div id="lro-name" class="text-[11px] font-mono text-gray-400 mt-0.5 truncate" title=""></div>
+            </div>
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              <button id="btn-poll-lro" onclick="pollCurrentOperation()" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium transition flex items-center space-x-1">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Check Status</span>
+              </button>
+              <button id="btn-fetch-results" onclick="fetchCurrentSearchResults()" class="hidden px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition flex items-center space-x-1">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Get Results</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- JSON Tree View -->
+          <div id="res-view-json" class="hidden select-text leading-relaxed">
+            <pre id="json-renderer" class="whitespace-pre-wrap"></pre>
+          </div>
+
+          <!-- Table View -->
+          <div id="res-view-table" class="hidden overflow-x-auto">
+            <div id="table-container" class="space-y-2"></div>
+          </div>
+
+          <!-- Raw View -->
+          <div id="res-view-raw" class="hidden">
+            <pre id="raw-renderer" class="whitespace-pre-wrap select-text text-gray-300"></pre>
+          </div>
+
+          <!-- Headers View -->
+          <div id="res-view-headers" class="hidden">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="text-gray-400 border-b border-gray-800 text-[11px] uppercase">
+                  <th class="pb-2 w-1/3">Header</th>
+                  <th class="pb-2 w-2/3">Value</th>
+                </tr>
+              </thead>
+              <tbody id="response-headers-body" class="divide-y divide-gray-800/60"></tbody>
+            </table>
+          </div>
+
+          <!-- Troubleshooting View -->
+          <div id="res-view-troubleshoot" class="hidden space-y-4">
+            <div class="p-4 bg-amber-950/20 border border-amber-500/40 rounded-lg space-y-2">
+              <div class="flex items-center space-x-2 text-amber-400 font-bold">
+                <i class="fa-solid fa-circle-exclamation text-base"></i>
+                <span id="troubleshoot-title">Error Analysis</span>
+              </div>
+              <p id="troubleshoot-desc" class="text-gray-300 text-xs leading-relaxed"></p>
+              <div class="pt-2 border-t border-amber-500/20">
+                <h4 class="text-xs font-bold text-amber-300 mb-1.5">Recommended Actions:</h4>
+                <ul id="troubleshoot-suggestions" class="list-disc list-inside text-gray-300 text-xs space-y-1"></ul>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+    </main>
+
+  </div>
+
+  <!-- BOTTOM STATUS & DISCLAIMER BAR -->
+  <footer class="h-7 border-t border-gray-800 bg-[#090d16] px-4 flex items-center justify-between text-[11px] text-gray-500 flex-shrink-0">
+    <div class="flex items-center space-x-2">
+      <span class="text-amber-400/80 font-semibold">Disclaimer:</span>
+      <span>Not an official Google product or service • Author: <strong class="text-gray-300">Edwin Raja</strong></span>
+    </div>
+    <div class="flex items-center space-x-3 text-gray-400">
+      <span class="text-emerald-400/90 font-mono text-[10px] hidden sm:inline"><i class="fa-solid fa-lock mr-1"></i>AES-256 Fernet Key Encryption</span>
+      <span class="hidden sm:inline">•</span>
+      <button onclick="openMethodGuideModal()" class="hover:text-blue-400 transition">REST Guide</button>
+      <span>•</span>
+      <button onclick="openAboutModal()" class="hover:text-blue-400 transition">About</button>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- MODALS -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. SERVICE ACCOUNT & GTI API KEY CONFIG & ENCRYPTION MODAL -->
+  <div id="config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-[#111827] border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in">
+      <div class="h-14 border-b border-gray-800 px-5 flex items-center justify-between bg-[#151f33] flex-shrink-0">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-key text-blue-400"></i>
+          <h3 class="font-bold text-sm text-white">API Credentials &amp; Encryption Vault (Chronicle API &amp; GTI API)</h3>
+        </div>
+        <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Platform Credential Switcher Tabs inside Modal -->
+      <div class="flex border-b border-gray-800 bg-[#0d1424] px-5 pt-2 space-x-2 flex-shrink-0">
+        <button id="cfg-tab-btn-secops" onclick="switchConfigModalTab('secops')" class="px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 border-blue-500 text-blue-300 bg-[#111827] flex items-center space-x-2 transition">
+          <i class="fa-solid fa-shield-halved text-blue-400"></i>
+          <span>Chronicle API Credentials</span>
+          <span id="cfg-tab-badge-secops" class="px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 text-[10px] font-mono">Not Set</span>
+        </button>
+        <button id="cfg-tab-btn-gti" onclick="switchConfigModalTab('gti')" class="px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 border-transparent text-gray-400 hover:text-gray-200 flex items-center space-x-2 transition">
+          <i class="fa-solid fa-radar text-cyan-400"></i>
+          <span>GTI API Credentials</span>
+          <span id="cfg-tab-badge-gti" class="px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 text-[10px] font-mono">Not Set</span>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+
+        <!-- Encryption Assurance Banner -->
+        <div class="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/40 flex items-start space-x-2.5 text-emerald-300">
+          <i class="fa-solid fa-shield-halved text-base text-emerald-400 mt-0.5 flex-shrink-0"></i>
+          <div class="text-[11px] leading-relaxed">
+            <strong class="font-semibold text-emerald-200">End-to-End Encryption at Rest (AES-256):</strong>
+            All uploaded Chronicle Service Account JSON keys and Google Threat Intelligence (<code class="text-emerald-300">x-apikey</code>) credentials are encrypted with Fernet (AES-128-CBC + HMAC-SHA256 authenticated encryption) before being persisted. Decryption happens strictly in-memory during live API execution. No cleartext keys are ever stored on disk or displayed in the UI.
+          </div>
+        </div>
+
+        <!-- PANEL 1: CHRONICLE API (SERVICE ACCOUNT JSON) -->
+        <div id="cfg-panel-secops" class="space-y-4">
+          <!-- Visual Credential Validation Stepper for Chronicle -->
+          <div id="secops-cred-stepper" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-2.5 rounded-lg bg-[#0d1424] border border-gray-800">
+            <div id="secops-step-created" class="flex items-center space-x-2.5 px-3 py-2 rounded-md bg-gray-900/80 border border-gray-800 text-gray-400">
+              <i id="secops-step-created-icon" class="fa-regular fa-circle text-sm text-gray-500"></i>
+              <div>
+                <div class="text-[11px] font-bold">1. Credentials Created</div>
+                <div id="secops-step-created-sub" class="text-[10px] text-gray-500 font-mono">Awaiting Service Account JSON</div>
+              </div>
+            </div>
+            <div id="secops-step-validated" class="flex items-center space-x-2.5 px-3 py-2 rounded-md bg-gray-900/80 border border-gray-800 text-gray-400">
+              <i id="secops-step-validated-icon" class="fa-regular fa-circle text-sm text-gray-500"></i>
+              <div>
+                <div class="text-[11px] font-bold">2. Validated for Use</div>
+                <div id="secops-step-validated-sub" class="text-[10px] text-gray-500 font-mono">Pending OAuth2 verification</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-gray-200">Chronicle Service Account JSON Key</label>
+              <span id="sa-status-label" class="text-[11px] text-gray-500 font-mono">Not configured</span>
+            </div>
+
+            <input type="file" id="sa-file-input" accept=".json,application/json" class="hidden" onchange="handleSaFileSelect(event)">
+
+            <div id="sa-dropzone" class="border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-lg p-5 text-center transition bg-[#141b2d] cursor-pointer"
+                 onclick="triggerSaFileSelect(event)"
+                 ondragover="handleSaDragOver(event)"
+                 ondragleave="handleSaDragLeave(event)"
+                 ondrop="handleSaDrop(event)">
+              <i id="sa-dropzone-icon" class="fa-solid fa-file-arrow-up text-2xl text-blue-400 mb-1.5"></i>
+              <p id="sa-dropzone-title" class="text-xs text-gray-200 font-semibold">Click to upload or drag &amp; drop <code class="text-blue-400">service_account.json</code> file</p>
+              <p class="text-[11px] text-gray-500 mt-1">Required roles: <code class="text-gray-400">roles/chronicle.viewer</code> or <code class="text-gray-400">roles/chronicle.admin</code></p>
+              <div class="mt-2.5">
+                <span class="inline-flex items-center px-3 py-1 rounded bg-blue-600/20 border border-blue-500/40 text-blue-300 text-[11px] font-medium hover:bg-blue-600/30 transition">
+                  <i class="fa-solid fa-folder-open mr-1.5"></i>Choose JSON File...
+                </span>
+              </div>
+            </div>
+
+            <!-- Identified SA Key Summary Card -->
+            <div id="sa-identified-card" class="hidden p-3 rounded-lg bg-[#141d2f] border border-gray-700/80 space-y-1.5 text-[11px]">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">Identified Service Account:</span>
+                <span id="sa-identified-email" class="font-mono text-gray-200 font-semibold">Not loaded</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">Detected Key Project ID:</span>
+                <span id="sa-identified-project" class="font-mono text-cyan-400">Not set</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">OAuth2 Token Verification:</span>
+                <span id="sa-identified-status" class="font-mono text-emerald-400">Encrypted at Rest (AES-256)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div class="space-y-1">
+              <label class="font-semibold text-gray-300">GCP Project ID</label>
+              <input type="text" id="cfg-project-id" placeholder="Enter GCP Project ID"
+                     class="w-full bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="space-y-1">
+              <label class="font-semibold text-gray-300">Customer / Instance ID</label>
+              <input type="text" id="cfg-customer-id" placeholder="Enter Chronicle Instance UUID"
+                     class="w-full bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="font-semibold text-gray-300">Chronicle Region / Location</label>
+              <select id="cfg-location" onchange="updateEndpointFromLocation()" class="w-full bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+                <option value="us">us (United States / Multi-region)</option>
+                <option value="europe-west3">europe-west3 (Frankfurt)</option>
+                <option value="europe-west2">europe-west2 (London)</option>
+                <option value="asia-southeast1">asia-southeast1 (Singapore)</option>
+                <option value="asia-northeast1">asia-northeast1 (Tokyo)</option>
+                <option value="asia-south1">asia-south1 (Mumbai)</option>
+                <option value="australia-southeast1">australia-southeast1 (Sydney)</option>
+                <option value="me-central2">me-central2 (Dammam)</option>
+                <option value="me-west1">me-west1 (Tel Aviv)</option>
+                <option value="northamerica-northeast1">northamerica-northeast1 (Montreal)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="font-semibold text-gray-300">Service Endpoint URL</label>
+              <input type="text" id="cfg-endpoint" placeholder="https://us-chronicle.googleapis.com"
+                     class="w-full bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL 2: GOOGLE THREAT INTELLIGENCE (GTI / VT v3 x-apikey) -->
+        <div id="cfg-panel-gti" class="hidden space-y-4">
+          <!-- Visual Credential Validation Stepper for GTI -->
+          <div id="gti-cred-stepper" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-2.5 rounded-lg bg-[#0d1424] border border-gray-800">
+            <div id="gti-step-created" class="flex items-center space-x-2.5 px-3 py-2 rounded-md bg-gray-900/80 border border-gray-800 text-gray-400">
+              <i id="gti-step-created-icon" class="fa-regular fa-circle text-sm text-gray-500"></i>
+              <div>
+                <div class="text-[11px] font-bold">1. Credentials Created</div>
+                <div id="gti-step-created-sub" class="text-[10px] text-gray-500 font-mono">Awaiting GTI x-apikey</div>
+              </div>
+            </div>
+            <div id="gti-step-validated" class="flex items-center space-x-2.5 px-3 py-2 rounded-md bg-gray-900/80 border border-gray-800 text-gray-400">
+              <i id="gti-step-validated-icon" class="fa-regular fa-circle text-sm text-gray-500"></i>
+              <div>
+                <div class="text-[11px] font-bold">2. Validated for Use</div>
+                <div id="gti-step-validated-sub" class="text-[10px] text-gray-500 font-mono">Pending live GTI v3 verification</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-gray-200">Google Threat Intelligence / VirusTotal v3 API Key (<code class="text-cyan-400">x-apikey</code>)</label>
+              <span id="gti-status-label" class="text-[11px] text-gray-500 font-mono">Not configured</span>
+            </div>
+
+            <input type="file" id="gti-file-input" accept=".txt,.key,.json" class="hidden" onchange="handleGtiFileSelect(event)">
+            <div id="gti-dropzone" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-lg p-4 text-center transition bg-[#141b2d] cursor-pointer"
+                 onclick="document.getElementById('gti-file-input').click()">
+              <i class="fa-solid fa-file-shield text-xl text-cyan-400 mb-1"></i>
+              <p class="text-xs text-gray-200 font-semibold">Click to upload a key file (<code class="text-cyan-400">.txt</code> / <code class="text-cyan-400">.json</code>) or enter your masked <code class="text-cyan-400">x-apikey</code> below</p>
+              <p class="text-[11px] text-gray-500 mt-0.5">64-character hexadecimal API key from Google Threat Intelligence / VirusTotal Profile</p>
+            </div>
+
+            <div class="space-y-1 pt-1">
+              <label class="font-semibold text-gray-300">GTI API Key (<code class="text-cyan-400">x-apikey</code> — Masked Input)</label>
+              <div class="flex space-x-2">
+                <input type="password" id="cfg-gti-api-key" autocomplete="off" placeholder="Paste your 64-character GTI API key here..."
+                       class="flex-1 bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+              </div>
+            </div>
+
+            <div class="space-y-1 pt-1">
+              <label class="font-semibold text-gray-300">GTI / VirusTotal v3 Base URL</label>
+              <input type="text" id="cfg-gti-endpoint" value="https://www.virustotal.com" placeholder="https://www.virustotal.com"
+                     class="w-full bg-[#172033] border border-gray-700 rounded px-3 py-1.5 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+            </div>
+
+            <!-- Identified GTI Key Summary Card -->
+            <div id="gti-identified-card" class="hidden p-3 rounded-lg bg-[#141d2f] border border-cyan-500/40 space-y-1.5 text-[11px]">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">Stored Encrypted GTI Key:</span>
+                <span id="gti-identified-masked" class="font-mono text-cyan-300 font-semibold">Not loaded</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">Target API Base URL:</span>
+                <span id="gti-identified-endpoint" class="font-mono text-gray-200">https://www.virustotal.com/api/v3</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-400 font-medium">Encryption &amp; Live Verification:</span>
+                <span id="gti-identified-status" class="font-mono text-emerald-400">Encrypted at Rest (AES-256)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection Test Result Box inside modal -->
+        <div id="modal-test-result" class="hidden p-3 rounded-lg border text-xs"></div>
+
+      </div>
+
+      <!-- Footer Actions for Chronicle Tab -->
+      <div id="cfg-footer-secops" class="h-14 border-t border-gray-800 px-5 flex items-center justify-between bg-[#151f33] flex-shrink-0">
+        <div class="flex items-center space-x-2">
+          <button onclick="testConnectionFromModal()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded font-medium text-xs border border-gray-700 transition">
+            <i class="fa-solid fa-plug mr-1.5 text-cyan-400"></i>Test Chronicle Connection
+          </button>
+          <button id="btn-remove-key" onclick="removeStoredKey()" class="hidden px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 rounded font-medium text-xs border border-red-700/50 transition" title="Wipe stored encrypted key">
+            <i class="fa-solid fa-trash-can mr-1"></i>Remove SA Key
+          </button>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="closeConfigModal()" class="px-4 py-1.5 text-gray-400 hover:text-white text-xs">Cancel</button>
+          <button onclick="saveConfiguration()" class="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded text-xs shadow transition">
+            Save Chronicle Settings
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer Actions for GTI Tab -->
+      <div id="cfg-footer-gti" class="hidden h-14 border-t border-gray-800 px-5 flex items-center justify-between bg-[#151f33] flex-shrink-0">
+        <div class="flex items-center space-x-2">
+          <button onclick="testGtiConnectionFromModal()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded font-medium text-xs border border-gray-700 transition">
+            <i class="fa-solid fa-plug mr-1.5 text-cyan-400"></i>Test GTI v3 Connection
+          </button>
+          <button id="btn-remove-gti-key" onclick="removeStoredGtiKey()" class="hidden px-2.5 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 rounded font-medium text-xs border border-red-700/50 transition" title="Wipe stored encrypted GTI key">
+            <i class="fa-solid fa-trash-can mr-1"></i>Remove GTI Key
+          </button>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="closeConfigModal()" class="px-4 py-1.5 text-gray-400 hover:text-white text-xs">Cancel</button>
+          <button onclick="saveGtiConfiguration()" class="px-5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded text-xs shadow transition">
+            Encrypt &amp; Save GTI Key
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. HTTP METHODS & REST GUIDE MODAL -->
+  <div id="method-guide-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-[#111827] border border-gray-700 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in">
+      <div class="h-14 border-b border-gray-800 px-5 flex items-center justify-between bg-[#151f33] flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">Chronicle &amp; GTI REST API HTTP Methods Guide</h3>
+            <p class="text-[11px] text-gray-400">Essential guide to HTTP verbs, request types, and REST conventions</p>
+          </div>
+        </div>
+        <button onclick="closeMethodGuideModal()" class="text-gray-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-5 space-y-4 text-xs text-gray-300 leading-relaxed">
+        <div class="p-3 rounded-lg bg-[#141b2d] border border-gray-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="method-badge method-get">GET</span>
+              <span class="font-bold text-gray-200">Read / Retrieve Intelligence &amp; Resources</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono">Safe &amp; Idempotent • No Body</span>
+          </div>
+          <p class="text-[11px] text-gray-400">
+            Fetches Chronicle feeds/rules/cases or GTI file hash reports, threat scores, passive DNS records, and threat actor collections without modifying server state.
+          </p>
+        </div>
+
+        <div class="p-3 rounded-lg bg-[#141b2d] border border-gray-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="method-badge method-post">POST</span>
+              <span class="font-bold text-gray-200">Create / Scan / Execute Custom Action</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">Mutating • JSON Body</span>
+          </div>
+          <p class="text-[11px] text-gray-400">
+            Creates new resources (Chronicle feeds/rules or GTI Threat Collections), triggers Chronicle <code class="text-purple-300">:search</code> queries, or submits URLs/files to GTI for live scanning.
+          </p>
+        </div>
+
+        <div class="p-3 rounded-lg bg-[#141b2d] border border-gray-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="method-badge method-patch">PATCH</span>
+              <span class="font-bold text-gray-200">Partial Update / Modify</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono">Modifying • JSON Body</span>
+          </div>
+          <p class="text-[11px] text-gray-400">
+            Updates specific fields of an existing Chronicle feed/rule or modifies a GTI Threat Collection or Livehunt YARA ruleset.
+          </p>
+        </div>
+
+        <div class="p-3 rounded-lg bg-[#141b2d] border border-gray-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="method-badge method-delete">DELETE</span>
+              <span class="font-bold text-gray-200">Remove / Destroy</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-mono">Destructive • Irreversible</span>
+          </div>
+          <p class="text-[11px] text-gray-400">
+            Permanently deletes a resource by ID (e.g., removing a Chronicle feed or deleting a custom GTI Threat Collection).
+          </p>
+        </div>
+      </div>
+
+      <div class="h-12 border-t border-gray-800 px-5 flex items-center justify-end bg-[#151f33] flex-shrink-0">
+        <button onclick="closeMethodGuideModal()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded text-xs transition">
+          Close Guide
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. ABOUT & DISCLAIMER MODAL -->
+  <div id="about-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-[#111827] border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in">
+      <div class="h-14 border-b border-gray-800 px-5 flex items-center justify-between bg-[#151f33]">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-shield-halved text-blue-400"></i>
+          <h3 class="font-bold text-sm text-white">About Google SecOps &amp; GTI API Runner</h3>
+        </div>
+        <button onclick="closeAboutModal()" class="text-gray-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs text-gray-300 leading-relaxed">
+        <div class="flex items-center space-x-3 p-3 rounded-lg bg-blue-950/20 border border-blue-500/30">
+          <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-base font-bold flex-shrink-0">
+            ER
+          </div>
+          <div>
+            <div class="font-bold text-sm text-white">Edwin Raja</div>
+            <div class="text-[11px] text-blue-400">Author &amp; Creator</div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-lg bg-amber-950/20 border border-amber-500/40 space-y-1 text-amber-200">
+          <div class="font-bold text-amber-300 flex items-center space-x-1.5">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+            <span>Disclaimer</span>
+          </div>
+          <p class="text-[11px] leading-relaxed">
+            This application is <strong>not an official Google product or service</strong>. It is an independent internal workbench created by <strong>Edwin Raja</strong> to help security engineers, customer engineers, and threat analysts interactively explore, test, and validate both <strong>Google SecOps (Chronicle v1alpha)</strong> and <strong>Google Threat Intelligence (GTI v3)</strong> APIs directly against live instances.
+          </p>
+        </div>
+
+        <div class="space-y-2 text-gray-400 text-[11px]">
+          <h4 class="font-bold text-gray-200 uppercase tracking-wider text-[10px]">Key Unified Features:</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li><strong>Tab 1 — Chronicle API:</strong> 1,215 Chronicle v1alpha endpoints, SA JSON upload, live tenant ID auto-fill, and LRO search polling.</li>
+            <li><strong>Tab 2 — GTI API:</strong> 179 Google Threat Intelligence v3 endpoints, <code class="text-cyan-400">gti_assessment</code> Verdict &amp; Threat Score summary cards, and quick-fill indicators.</li>
+            <li><strong>AES-256 Fernet Key Encryption:</strong> All credentials encrypted at rest in SQLite and strictly masked in UI.</li>
+            <li><strong>Zero Demo Data:</strong> Connects directly to live Chronicle and GTI endpoints.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="h-12 border-t border-gray-800 px-5 flex items-center justify-end bg-[#151f33]">
+        <button onclick="closeAboutModal()" class="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded text-xs">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. HISTORY DRAWER -->
+  <div id="history-drawer" class="hidden fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-[#0f1626] border-l border-gray-800 shadow-2xl flex flex-col">
+    <div class="h-14 border-b border-gray-800 px-4 flex items-center justify-between bg-[#0d1322]">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
+        <h3 class="font-bold text-xs text-white uppercase tracking-wider">Execution History</h3>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button onclick="clearHistory()" class="px-2.5 py-1 bg-red-950/40 hover:bg-red-900/60 text-red-300 rounded text-[11px] border border-red-700/50 transition">
+          Clear
+        </button>
+        <button onclick="toggleHistoryDrawer()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="text-gray-500 border-b border-gray-800 text-[11px] uppercase">
+            <th class="py-1.5 px-2">Time</th>
+            <th class="py-1.5 px-2">Method</th>
+            <th class="py-1.5 px-2">URL</th>
+            <th class="py-1.5 px-2">Status</th>
+            <th class="py-1.5 px-2">Duration</th>
+            <th class="py-1.5 px-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody id="history-table-body" class="divide-y divide-gray-800/40">
+          <!-- Dynamic history rows -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-lg shadow-xl text-xs font-medium flex items-center space-x-2 border transition-all duration-300"></div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="/app.js?v=3.1"></script>
+</body>
+</html>
